@@ -1,0 +1,52 @@
+name: ESP32 Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Cache ESP-IDF & Python Env
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.espressif
+          ~/esp-idf
+        key: esp-idf-cache-${{ runner.os }}
+
+    - name: Install prerequisites
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          git wget flex bison gperf python3 python3-pip python3-setuptools \
+          cmake ninja-build ccache libffi-dev libssl-dev dfu-util libusb-1.0-0
+
+    - name: Setup ESP-IDF
+      run: |
+        if [ ! -d "$HOME/esp-idf" ]; then
+          git clone --recursive https://github.com/espressif/esp-idf.git ~/esp-idf
+          cd ~/esp-idf
+          ./install.sh
+        fi
+        . ~/esp-idf/export.sh
+
+    - name: Build Project
+      run: |
+        . ~/esp-idf/export.sh
+        cd $GITHUB_WORKSPACE
+        idf.py -C src build
+
+    - name: Upload Firmware Artifacts
+      if: success()
+      uses: actions/upload-artifact@v3
+      with:
+        name: esp32-build-artifacts
+        path: src/build/
