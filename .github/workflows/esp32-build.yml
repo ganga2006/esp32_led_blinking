@@ -1,52 +1,35 @@
-name: ESP32 Build
+name: Build ESP32 Project
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+on: [push, pull_request]
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
+    - name: Checkout repository
       uses: actions/checkout@v3
 
-    - name: Cache ESP-IDF & Python Env
-      uses: actions/cache@v3
+    - name: Set up Python
+      uses: actions/setup-python@v4
       with:
-        path: |
-          ~/.espressif
-          ~/esp-idf
-        key: esp-idf-cache-${{ runner.os }}
+        python-version: '3.11'
 
-    - name: Install prerequisites
+    - name: Install ESP-IDF dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y \
-          git wget flex bison gperf python3 python3-pip python3-setuptools \
-          cmake ninja-build ccache libffi-dev libssl-dev dfu-util libusb-1.0-0
+        sudo apt-get install -y cmake ninja-build ccache libffi-dev libssl-dev dfu-util
 
-    - name: Setup ESP-IDF
+    - name: Clone ESP-IDF
       run: |
-        if [ ! -d "$HOME/esp-idf" ]; then
-          git clone --recursive https://github.com/espressif/esp-idf.git ~/esp-idf
-          cd ~/esp-idf
-          ./install.sh
-        fi
-        . ~/esp-idf/export.sh
+        git clone --recursive https://github.com/espressif/esp-idf.git
+        cd esp-idf
+        ./install.sh esp32
+        echo "source $GITHUB_WORKSPACE/esp-idf/export.sh" >> $GITHUB_ENV
 
     - name: Build Project
       run: |
-        . ~/esp-idf/export.sh
-        cd $GITHUB_WORKSPACE
-        idf.py -C src build
-
-    - name: Upload Firmware Artifacts
-      if: success()
-      uses: actions/upload-artifact@v4
-      with:
-        name: esp32-build-artifacts
-        path: src/build/
+        source $GITHUB_WORKSPACE/esp-idf/export.sh
+        idf.py set-target esp32
+        idf.py build
+      working-directory: ./src  # adjust to where your main project folder is
